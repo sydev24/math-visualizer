@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, validator
+from fastapi.responses import FileResponse
 import numpy as np
 from typing import List, Optional
 
@@ -10,6 +11,14 @@ app = FastAPI()
 # Mount thư mục "static" để FastAPI có thể trả về file giao diện (index.html)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# --- THÊM ĐOẠN CODE NÀY ---
+@app.get("/")
+def read_index():
+    # Khi người dùng vào trang chủ, trả về file giao diện
+    return FileResponse("static/index.html")
+# -------------------------
 # Lớp kiểm tra dữ liệu đầu vào từ Frontend gửi lên
 class RegressionRequest(BaseModel):
     type: str                     # 'linear' hoặc 'polynomial'
