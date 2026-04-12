@@ -1,0 +1,13 @@
+# Bỏ qua các file bộ nhớ đệm (cache) biên dịch của Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Bỏ qua thư mục Môi trường ảo (Rất quan trọng, vì nó rất nặng và chứa file hệ thống)
+venv/
+env/
+ENV/
+
+# Bỏ qua các file cấu hình của hệ điều hành (nếu có)
+.DS_Store
+Thumbs.db
