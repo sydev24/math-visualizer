@@ -1,245 +1,171 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
-    <title>Math & Regression Visualizer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Data Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
-    
+
     <style>
-        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;}
-        .section { background: white; border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
-        input, select, button { padding: 8px 12px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;}
-        button { background-color: #007bff; color: white; cursor: pointer; border: none; font-weight: bold;}
-        button:hover { background-color: #0056b3; }
-        textarea { width: 100%; height: 60px; font-family: monospace; }
-        .canvas-container { background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; }
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .tab-active {
+            background-color: #127369;
+            color: white;
+        }
+
+        .tab-inactive {
+            background-color: #e2e8f0;
+            color: #1d2b2a;
+        }
+
+        .tab-inactive:hover {
+            background-color: #cbd5e0;
+        }
+
+        .math-input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
+            margin-bottom: 16px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .math-input:focus {
+            border-color: #127369;
+        }
     </style>
 </head>
+
 <body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="brand-card card">
+                <p class="eyebrow">Machine Learning Web App</p>
+                <h1>ML Data Visualizer</h1>
+                <p class="subtitle">
+                    Tải CSV, chọn cột dữ liệu, huấn luyện hồi quy hoặc vẽ đồ thị hàm số toán học.
+                </p>
+            </div>
 
-    <h2>Trực quan hóa Hàm số & Hồi quy</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button id="tabML" class="tab-btn tab-active" onclick="switchMode('ml')">Máy học (ML)</button>
+                <button id="tabMath" class="tab-btn tab-inactive" onclick="switchMode('math')">Hàm số</button>
+            </div>
 
-    <div class="section">
-        <h3>1. Vẽ đồ thị hàm số</h3>
-        <input type="text" id="funcInput" value="x^2 + 2*x + 1" placeholder="Nhập hàm số, vd: sin(x)" style="width: 60%;">
-        <button onclick="plotFunction()">Vẽ Hàm</button>
+            <div id="mlSection">
+                <section class="card">
+                    <h2>1. Nguồn Dữ liệu</h2>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button id="btnModeCSV" class="tab-btn tab-active" onclick="setInputMode('csv')"
+                            style="padding: 5px 10px; font-size: 13px;">Tải CSV</button>
+                        <button id="btnModeManual" class="tab-btn tab-inactive" onclick="setInputMode('manual')"
+                            style="padding: 5px 10px; font-size: 13px;">Nhập tay</button>
+                    </div>
+
+                    <div id="modeCSV">
+                        <label for="csvFileInput">Chọn file CSV</label>
+                        <input type="file" id="csvFileInput" accept=".csv">
+                        <button id="uploadBtn" class="btn-primary" onclick="uploadCsvFile()">Tải và xử lý dữ
+                            liệu</button>
+                    </div>
+
+                    <div id="modeManual" style="display: none;">
+                        <label for="manualX">Trục X (Các số cách nhau bằng dấu phẩy)</label>
+                        <input type="text" id="manualX" class="math-input" placeholder="VD: 1, 2, 3, 4, 5"
+                            style="margin-bottom: 10px;">
+
+                        <label for="manualY">Trục Y (Các số cách nhau bằng dấu phẩy)</label>
+                        <input type="text" id="manualY" class="math-input" placeholder="VD: 2.1, 3.9, 6.1, 8.2, 10.5">
+
+                        <button class="btn-primary" onclick="applyManualData()">Áp dụng Dữ liệu</button>
+                    </div>
+
+                    <p id="uploadInfo" class="hint" style="margin-top: 15px;">Chưa có dữ liệu.</p>
+                </section>
+
+                <section class="card disabled" id="configCard">
+                    <h2>2. Cấu hình mô hình</h2>
+
+                    <label for="xColumn">Trục X (Đặc trưng)</label>
+                    <select id="xColumn"></select>
+
+                    <label for="yColumn">Trục Y (Mục tiêu)</label>
+                    <select id="yColumn"></select>
+
+                    <label for="modelType">Thuật toán</label>
+                    <select id="modelType">
+                        <option value="linear">Linear Regression</option>
+                        <option value="polynomial">Polynomial Regression</option>
+                    </select>
+
+                    <div id="degreeGroup" class="degree-group hidden">
+                        <div class="degree-label">
+                            <span>Bậc đa thức (Degree)</span>
+                            <strong id="degreeValue">2</strong>
+                        </div>
+                        <input type="range" id="degreeSlider" min="2" max="10" value="2">
+                    </div>
+                </section>
+
+                <section class="card metrics-card">
+                    <h2>3. Đánh giá mô hình</h2>
+                    <div class="metric-item">
+                        <span>MSE</span>
+                        <strong id="mseValue">--</strong>
+                    </div>
+                    <div class="metric-item">
+                        <span>R²</span>
+                        <strong id="r2Value">--</strong>
+                    </div>
+                    <p id="statusText" class="hint">Sẵn sàng.</p>
+                </section>
+            </div>
+
+            <div id="mathSection" style="display: none;">
+                <section class="card">
+                    <h2>Vẽ Đồ thị Hàm số</h2>
+                    <label for="mathInput">Nhập hàm f(x)</label>
+                    <input type="text" id="mathInput" class="math-input" value="pow(abs(x), 2/3) + (0.9 * pow(3.3 - x^2, 0.5)) * sin(20 * pi * x)" placeholder="VD: 2*x + 1">
+
+                    <button class="btn-primary" onclick="plotMathRealtime()">Vẽ đồ thị</button>
+                    <p class="hint" style="margin-top: 15px;">Ví dụ hỗ trợ: sin(x), cos(x), x^2 + 2*x, sqrt(x),
+                        log(x)...</p>
+                </section>
+            </div>
+
+        </aside>
+
+        <main class="chart-panel">
+            <div class="chart-card">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </main>
     </div>
 
-    <div class="section">
-        <h3>2. Hồi quy Dữ liệu</h3>
-        <select id="regType">
-            <option value="linear">Tuyến tính (Linear Regression)</option>
-            <option value="polynomial">Đa thức (Polynomial Regression)</option>
-        </select>
-        <input type="number" id="regDegree" value="2" placeholder="Bậc đa thức" min="2" max="10" title="Chỉ dùng cho Đa thức">
-        
-        <p>Nhập X (Mảng 2D):</p>
-        <textarea id="dataX">[[1], [2], [3], [4], [5]]</textarea>
-        
-        <p>Nhập y (Mảng 1D):</p>
-        <textarea id="dataY">[2.1, 3.9, 6.1, 8.2, 10.5]</textarea>
-        
-        <br>
-        <button onclick="plotRegression()">Tính toán & Vẽ Hồi Quy</button>
-        <button onclick="resetZoom()" style="background-color: #6c757d; margin-left: 10px;">Reset View đồ thị</button>
-    </div>
-
-    <div class="canvas-container">
-        <canvas id="myChart"></canvas>
-    </div>
-
-<script>
-    // --- BIẾN TOÀN CỤC ---
-    let chartInstance = null;
-    let currentMode = null;      // Chế độ hiện tại: 'function' hoặc 'regression'
-    let currentFuncExpr = "";    // Lưu biểu thức toán học
-    let currentBeta = [];        // Lưu mảng hệ số Beta lấy từ API
-    let currentRegType = "";     // Lưu loại hồi quy
-    let currentDegree = 1;       // Lưu bậc đa thức
-
-    // --- HÀM LẤY MẪU (SAMPLING) ---
-    // Tạo ra một mảng các điểm x cách đều nhau trong một khoảng
-    function generateSamples(min, max, numPoints = 300) {
-        const step = (max - min) / (numPoints - 1);
-        return Array.from({length: numPoints}, (_, i) => min + i * step);
-    }
-
-    // --- HÀM CẬP NHẬT ĐỒ THỊ KHI ZOOM/PAN (VẼ VÔ CỰC) ---
-    function updateLinesOnZoomPan(chart) {
-        // Lấy tọa độ min, max của trục X hiện tại trên màn hình
-        const min_x = chart.scales.x.min;
-        const max_x = chart.scales.x.max;
-        
-        // Mở rộng viền vẽ thêm 20% mỗi bên để đồ thị không bị khựng khi kéo nhanh
-        const padding = (max_x - min_x) * 0.2;
-        const x_samples = generateSamples(min_x - padding, max_x + padding, 300);
-
-        if (currentMode === 'function') {
-            try {
-                const compiled = math.compile(currentFuncExpr);
-                let newData = x_samples.map(x => {
-                    const y = compiled.evaluate({ x: x });
-                    return isFinite(y) ? { x: x, y: y } : null; // Lọc bỏ giá trị vô cực
-                }).filter(p => p !== null);
-                
-                chart.data.datasets[0].data = newData;
-                chart.update('none'); // Update 'none' giúp vẽ lại tức thì không cần hiệu ứng chuyển động
-            } catch(e) {}
-        } 
-        else if (currentMode === 'regression' && currentBeta.length > 0) {
-            let newData = x_samples.map(x => {
-                let y_pred = 0;
-                if (currentRegType === 'linear') {
-                    // y = beta_0 + beta_1 * x
-                    y_pred = currentBeta[0] + currentBeta[1] * x;
-                } else if (currentRegType === 'polynomial') {
-                    // y = beta_0 + beta_1*x^1 + beta_2*x^2 + ...
-                    y_pred = currentBeta[0];
-                    for (let d = 1; d <= currentDegree; d++) {
-                        y_pred += currentBeta[d] * Math.pow(x, d);
-                    }
-                }
-                return { x: x, y: y_pred };
-            });
-            
-            chart.data.datasets[1].data = newData; // dataset[1] là đường hồi quy
-            chart.update('none');
-        }
-    }
-
-    // --- VẼ HÀM SỐ TOÁN HỌC ---
-    function plotFunction() {
-        currentMode = 'function';
-        currentFuncExpr = document.getElementById('funcInput').value;
-        const x_vals = generateSamples(-10, 10, 300);
-        let dataPoints = [];
-
-        try {
-            const compiled = math.compile(currentFuncExpr);
-            x_vals.forEach(x => {
-                const y = compiled.evaluate({ x: x });
-                if (isFinite(y)) dataPoints.push({ x: x, y: y });
-            });
-            drawChart(dataPoints, 'Hàm số f(x)', 'line');
-        } catch (err) {
-            alert("Biểu thức không hợp lệ! Vui lòng kiểm tra lại.");
-        }
-    }
-
-    // --- TÍNH TOÁN & VẼ HỒI QUY ---
-    async function plotRegression() {
-        const type = document.getElementById('regType').value;
-        const degree = parseInt(document.getElementById('regDegree').value);
-        let X, y;
-        
-        try {
-            X = JSON.parse(document.getElementById('dataX').value);
-            y = JSON.parse(document.getElementById('dataY').value);
-        } catch(e) {
-            alert("Dữ liệu JSON không hợp lệ!"); return;
-        }
-
-        // Gọi API Backend để lấy Beta
-        const response = await fetch('/regression', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type, degree, X, y })
-        });
-
-        if (!response.ok) {
-            alert("Lỗi từ server! Kiểm tra lại định dạng dữ liệu."); return;
-        }
-
-        const result = await response.json();
-        
-        // Lưu trạng thái vào biến toàn cục cho tính năng Zoom
-        currentMode = 'regression';
-        currentBeta = result.beta;
-        currentRegType = type;
-        currentDegree = degree;
-
-        // Vẽ các điểm dữ liệu thật (Scatter)
-        let realDataPoints = X.map((x_val, index) => ({ x: x_val[0], y: y[index] }));
-
-        // Lấy mẫu ban đầu để vẽ đường hồi quy mượt mà
-        let min_x = Math.min(...X.map(val => val[0]));
-        let max_x = Math.max(...X.map(val => val[0]));
-        const padding = (max_x - min_x) * 0.1; 
-        const x_samples = generateSamples(min_x - padding, max_x + padding, 300);
-        
-        let regDataPoints = [];
-        x_samples.forEach(x => {
-            let y_pred = 0;
-            if (type === 'linear') {
-                y_pred = currentBeta[0] + currentBeta[1] * x;
-            } else if (type === 'polynomial') {
-                y_pred = currentBeta[0];
-                for (let d = 1; d <= degree; d++) {
-                    y_pred += currentBeta[d] * Math.pow(x, d);
-                }
-            }
-            regDataPoints.push({ x: x, y: y_pred });
-        });
-
-        drawRegressionChart(realDataPoints, regDataPoints);
-    }
-
-    // --- CẤU HÌNH CHART.JS CHUNG CÓ HỖ TRỢ ZOOM ---
-    const getZoomConfig = () => ({
-        pan: {
-            enabled: true, mode: 'xy',
-            onPan: function({chart}) { updateLinesOnZoomPan(chart); }
-        },
-        zoom: {
-            wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy',
-            onZoom: function({chart}) { updateLinesOnZoomPan(chart); }
-        }
-    });
-
-    function drawChart(data, label, type) {
-        if (chartInstance) chartInstance.destroy();
-        const ctx = document.getElementById('myChart').getContext('2d');
-        chartInstance = new Chart(ctx, {
-            type: 'scatter',
-            data: {
-                datasets: [{
-                    label: label, data: data, borderColor: '#007bff',
-                    showLine: type === 'line', pointRadius: type === 'line' ? 0 : 3, borderWidth: 2
-                }]
-            },
-            options: { 
-                scales: { x: { type: 'linear', position: 'bottom' } },
-                plugins: { zoom: getZoomConfig() },
-                animation: false // Tắt animation để trải nghiệm mượt hơn
-            }
-        });
-    }
-
-    function drawRegressionChart(realData, regData) {
-        if (chartInstance) chartInstance.destroy();
-        const ctx = document.getElementById('myChart').getContext('2d');
-        chartInstance = new Chart(ctx, {
-            type: 'scatter',
-            data: {
-                datasets: [
-                    { label: 'Dữ liệu thực tế', data: realData, backgroundColor: 'red', pointRadius: 5 },
-                    { label: 'Đường hồi quy', data: regData, borderColor: '#007bff', showLine: true, pointRadius: 0, borderWidth: 2 }
-                ]
-            },
-            options: { 
-                scales: { x: { type: 'linear', position: 'bottom' } },
-                plugins: { zoom: getZoomConfig() },
-                animation: false
-            }
-        });
-    }
-
-    function resetZoom() {
-        if (chartInstance) chartInstance.resetZoom();
-    }
-</script>
+    <script src="/static/script.js"></script>
 </body>
+
 </html>

@@ -1,0 +1,239 @@
+﻿/*
+  Biến màu và thông số chung để dễ bảo trì giao diện.
+  Thiết kế theo phong cách hiện đại, tối giản và ưu tiên khoảng trắng.
+*/
+:root {
+    --bg-a: #f8f6f1;
+    --bg-b: #eaf2f2;
+    --card: #ffffff;
+    --text-main: #1d2b2a;
+    --text-muted: #5b6968;
+    --line: #d8e2e0;
+    --primary: #127369;
+    --primary-dark: #0b4f49;
+    --accent: #cc5f2f;
+    --shadow: 0 20px 45px rgba(19, 36, 35, 0.08);
+    --radius-lg: 20px;
+    --radius-md: 14px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Manrope", sans-serif;
+    color: var(--text-main);
+    background:
+        radial-gradient(circle at 8% 12%, rgba(18, 115, 105, 0.15), transparent 32%),
+        radial-gradient(circle at 85% 85%, rgba(204, 95, 47, 0.14), transparent 38%),
+        linear-gradient(135deg, var(--bg-a), var(--bg-b));
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 20px;
+    padding: 22px;
+    min-height: 100vh;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.card {
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    backdrop-filter: blur(2px);
+}
+
+.brand-card {
+    animation: fade-in 0.45s ease;
+}
+
+.eyebrow {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+
+.brand-card h1 {
+    margin: 8px 0 10px;
+    font-size: 28px;
+    line-height: 1.2;
+}
+
+.subtitle {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+h2 {
+    margin: 0 0 14px;
+    font-size: 16px;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+input[type="file"],
+select,
+input[type="range"] {
+    width: 100%;
+}
+
+input[type="file"],
+select {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 11px 12px;
+    font-size: 14px;
+    background: #fdfefe;
+    color: var(--text-main);
+}
+
+select:focus,
+input[type="file"]:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.btn-primary {
+    margin-top: 14px;
+    width: 100%;
+    border: 0;
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    background: linear-gradient(120deg, var(--primary), var(--primary-dark));
+    color: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 20px rgba(18, 115, 105, 0.25);
+}
+
+.hint {
+    margin: 12px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.disabled {
+    opacity: 0.56;
+    pointer-events: none;
+}
+
+.degree-group {
+    margin-top: 16px;
+    background: #f5faf9;
+    border: 1px solid #d3e8e4;
+    border-radius: var(--radius-md);
+    padding: 12px;
+}
+
+.hidden {
+    display: none;
+}
+
+.degree-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.degree-label strong {
+    color: var(--accent);
+}
+
+.metrics-card .metric-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f7fbfa;
+    border: 1px solid #e0ece9;
+    border-radius: 12px;
+    padding: 11px 12px;
+    margin-bottom: 9px;
+}
+
+.metric-item strong {
+    color: var(--accent);
+    font-size: 16px;
+}
+
+.chart-panel {
+    min-width: 0;
+}
+
+.chart-card {
+    height: 100%;
+    min-height: 520px;
+    background: linear-gradient(170deg, #ffffff, #f9fcfc);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    padding: 18px;
+    animation: slide-up 0.55s ease;
+}
+
+#mainChart {
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 1024px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-card {
+        min-height: 460px;
+    }
+}
