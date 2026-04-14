@@ -365,25 +365,54 @@ document.getElementById('mathInput').addEventListener('keypress', function (e) {
 // ==========================================
 
 // Hàm chuyển đổi giao diện giữa "Tải CSV" và "Nhập tay"
+// 1. HÀM CHUYỂN ĐỔI TAB NHẬP LIỆU (Đã nâng cấp hỗ trợ 3 Tab)
 function setInputMode(mode) {
-    const divCSV = document.getElementById('modeCSV');
-    const divManual = document.getElementById('modeManual');
-    const btnCSV = document.getElementById('btnModeCSV');
-    const btnManual = document.getElementById('btnModeManual');
+    const sections = {
+        'csv': document.getElementById('modeCSV'),
+        'manual': document.getElementById('modeManual'),
+        'sample': document.getElementById('modeSample') // Đã thêm tab Sample
+    };
+    const buttons = {
+        'csv': document.getElementById('btnModeCSV'),
+        'manual': document.getElementById('btnModeManual'),
+        'sample': document.getElementById('btnModeSample') // Đã thêm nút Sample
+    };
 
-    if (mode === 'csv') {
-        divCSV.style.display = 'block';
-        divManual.style.display = 'none';
-        btnCSV.className = 'tab-btn tab-active';
-        btnManual.className = 'tab-btn tab-inactive';
-    } else {
-        divCSV.style.display = 'none';
-        divManual.style.display = 'block';
-        btnManual.className = 'tab-btn tab-active';
-        btnCSV.className = 'tab-btn tab-inactive';
-    }
+    // Duyệt qua cả 3 tab, tab nào được chọn thì hiện, còn lại ẩn đi
+    Object.keys(sections).forEach(key => {
+        if (sections[key] && buttons[key]) {
+            sections[key].style.display = (key === mode) ? 'block' : 'none';
+            buttons[key].className = (key === mode) ? 'tab-btn tab-active' : 'tab-btn tab-inactive';
+        }
+    });
 }
 
+// 2. HÀM TẢI DỮ LIỆU MẪU VÀO HỆ THỐNG
+function loadSampleData() {
+    // Tập dữ liệu mẫu: Chi phí Quảng cáo và Doanh thu
+    const sampleData = {
+        "Quảng cáo (triệu VNĐ)": [10, 20, 30, 45, 50, 60, 75, 80, 95, 110, 120, 135],
+        "Doanh thu (triệu VNĐ)": [25, 48, 62, 95, 105, 120, 155, 168, 195, 220, 245, 270]
+    };
+
+    // Đưa dữ liệu vào State toàn cục của App
+    appState.dataByColumn = sampleData;
+    appState.columns = Object.keys(sampleData);
+
+    // Đổ dữ liệu vào Dropdown Trục X và Trục Y
+    fillColumnSelect(dom.xColumn, appState.columns, 0);
+    fillColumnSelect(dom.yColumn, appState.columns, 1);
+
+    // Mở khóa giao diện cấu hình
+    dom.configCard.classList.remove("disabled");
+    
+    // Cập nhật thông báo trạng thái
+    dom.uploadInfo.textContent = "Đã nạp dữ liệu mẫu thành công!";
+    dom.statusText.textContent = "Dữ liệu mẫu sẵn sàng. Đang huấn luyện...";
+    
+    // Tự động gọi API để train model ngay lập tức
+    trainRealtime();
+}
 // Hàm đọc và áp dụng dữ liệu người dùng tự nhập
 function applyManualData() {
     const strX = document.getElementById('manualX').value;
@@ -467,4 +496,50 @@ function extendGraphOnZoom(chart) {
             // Bỏ qua lỗi nếu đang gõ dở công thức
         }
     }
+}
+function loadSampleData() {
+    // 1. Định nghĩa tập dữ liệu mẫu (Bạn có thể đổi sang các số khác)
+    const sampleData = {
+        "Quảng cáo (triệu VNĐ)": [10, 20, 30, 45, 50, 60, 75, 80, 95, 110, 120, 135],
+        "Doanh thu (triệu VNĐ)": [25, 48, 62, 95, 105, 120, 155, 168, 195, 220, 245, 270]
+    };
+
+    // 2. Đưa vào State
+    appState.dataByColumn = sampleData;
+    appState.columns = Object.keys(sampleData);
+
+    // 3. Đổ dữ liệu vào các Select box
+    fillColumnSelect(dom.xColumn, appState.columns, 0);
+    fillColumnSelect(dom.yColumn, appState.columns, 1);
+
+    // 4. Mở khóa giao diện cấu hình
+    dom.configCard.classList.remove("disabled");
+    
+    // 5. Thông báo trạng thái và tự động Train
+    dom.uploadInfo.textContent = "Đã nạp dữ liệu mẫu thành công!";
+    dom.statusText.textContent = "Dữ liệu mẫu sẵn sàng. Đang huấn luyện...";
+    
+    // Chuyển sang Tab ML để người dùng thấy kết quả ngay
+    if (typeof switchMode === 'function') switchMode('ml');
+    
+    trainRealtime();
+}
+
+// Cập nhật hàm setInputMode để nhận thêm case 'sample'
+function setInputMode(mode) {
+    const sections = {
+        'csv': document.getElementById('modeCSV'),
+        'manual': document.getElementById('modeManual'),
+        'sample': document.getElementById('modeSample')
+    };
+    const buttons = {
+        'csv': document.getElementById('btnModeCSV'),
+        'manual': document.getElementById('btnModeManual'),
+        'sample': document.getElementById('btnModeSample')
+    };
+
+    Object.keys(sections).forEach(key => {
+        sections[key].style.display = (key === mode) ? 'block' : 'none';
+        buttons[key].className = (key === mode) ? 'tab-btn tab-active' : 'tab-btn tab-inactive';
+    });
 }
