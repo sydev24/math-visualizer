@@ -1,9 +1,11 @@
-﻿
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import io
+import asyncio 
+import httpx   
+import logging
 from typing import List
-
+from contextlib import asynccontextmanager
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -13,42 +15,65 @@ from pydantic import BaseModel, Field
 
 from ml_engine import train_and_evaluate
 
-# Khởi tạo FastAPI với metadata rõ ràng để dễ mở rộng tài liệu API sau này.
+# ==========================================
+# CƠ CHẾ SELF-PING CHỐNG NGỦ ĐÔNG
+# ==========================================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ml_visualizer")
+
+APP_URL = "https://math-visualizer-7zi8.onrender.com/ping"
+PING_INTERVAL = 10 * 60  # Ping mỗi 10 phút (600 giây)
+
+async def keep_alive_task():
+    """Luồng chạy ngầm giữ server luôn thức trên nền tảng Cloud."""
+    async with httpx.AsyncClient() as client:
+        while True:
+            await asyncio.sleep(PING_INTERVAL)
+            try:
+                response = await client.get(APP_URL, timeout=10.0)
+                logger.info(f"[Keep-Alive] Tự ping thành công. Status: {response.status_code}")
+            except Exception as e:
+                logger.warning(f"[Keep-Alive] Tự ping thất bại: {e}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(keep_alive_task())
+    yield
+    task.cancel()
+
+# ==========================================
+# KHỞI TẠO ỨNG DỤNG
+# ==========================================
 app = FastAPI(
     title="ML Data Visualizer API",
     description="API xử lý pipeline dữ liệu CSV và huấn luyện mô hình hồi quy theo thời gian thực.",
-    version="1.0.0",
+    version="2.0.0",
+    lifespan=lifespan 
 )
 
-# Mount thư mục static để frontend có thể tải HTML/CSS/JS trực tiếp từ cùng một server.
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 
 @app.get("/")
 def read_index() -> FileResponse:
-    """Trả về trang giao diện chính của ứng dụng."""
-    return FileResponse("static/index.html")
+    return FileResponse("static/index.html")   
 
+@app.get("/ping")
+def keep_alive():
+    return {"status": "alive", "message": "Server đang trực chiến!"}
 
+# ==========================================
+# SCHEMAS & ROUTES DATA
+# ==========================================
 class TrainRequest(BaseModel):
     """Schema request cho endpoint train."""
-
     x_data: List[float]
     y_data: List[float]
     model_type: str = Field(default="linear")
     degree: int = Field(default=2, ge=2, le=10)
 
-
 @app.post("/upload")
 async def upload_csv(file: UploadFile = File(...)) -> dict:
-    """
-    Data Pipeline:
-    - Nhận file CSV từ frontend.
-    - Đọc bằng Pandas.
-    - Loại bỏ dòng chứa NaN.
-    - Chỉ giữ cột dữ liệu số.
-    - Trả về dữ liệu dạng JSON cho frontend.
-    """
+    """Xử lý file CSV đầu vào: Đọc, lọc NaN, giữ cột số."""
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Chỉ chấp nhận file định dạng .csv.")
 
@@ -64,44 +89,30 @@ async def upload_csv(file: UploadFile = File(...)) -> dict:
     if raw_df.empty:
         raise HTTPException(status_code=400, detail="CSV không có dữ liệu hợp lệ.")
 
-    # Bước lọc dữ liệu theo yêu cầu:
-    # 1) Chỉ lấy cột số.
-    # 2) Bỏ tất cả dòng có ít nhất một NaN.
     numeric_df = raw_df.select_dtypes(include=[np.number]).dropna(axis=0, how="any")
 
     if numeric_df.empty or numeric_df.shape[1] == 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Không tìm thấy cột số hợp lệ sau khi lọc NaN.",
-        )
-
-    columns = numeric_df.columns.tolist()
-    data_dict = numeric_df.to_dict(orient="list")
+        raise HTTPException(status_code=400, detail="Không tìm thấy cột số hợp lệ sau khi lọc NaN.")
 
     return {
         "filename": file.filename,
         "rows": int(len(numeric_df)),
-        "columns": columns,
-        "data": data_dict,
+        "columns": numeric_df.columns.tolist(),
+        "data": numeric_df.to_dict(orient="list"),
     }
-
 
 @app.post("/train")
 def train_model(req: TrainRequest) -> dict:
-    """
-    Huấn luyện model theo cấu hình người dùng:
-    - linear: Linear Regression.
-    - polynomial: Linear Regression + PolynomialFeatures.
-    """
+    """Huấn luyện mô hình Linear/Polynomial theo yêu cầu."""
     if len(req.x_data) != len(req.y_data):
-        raise HTTPException(status_code=400, detail="x_data và y_data phải có cùng số phần tử.")
+        raise HTTPException(status_code=400, detail="x_data và y_data phải cùng số phần tử.")
 
     if len(req.x_data) < 2:
-        raise HTTPException(status_code=400, detail="Cần tối thiểu 2 điểm dữ liệu để huấn luyện.")
+        raise HTTPException(status_code=400, detail="Cần tối thiểu 2 điểm dữ liệu.")
 
     model_type = req.model_type.lower().strip()
     if model_type not in {"linear", "polynomial"}:
-        raise HTTPException(status_code=400, detail="model_type phải là 'linear' hoặc 'polynomial'.")
+        raise HTTPException(status_code=400, detail="model_type sai.")
 
     try:
         return train_and_evaluate(
@@ -112,11 +123,3 @@ def train_model(req: TrainRequest) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-# --- KEEP ALIVE (Chống ngủ đông) ---
-@app.get("/ping")
-def keep_alive():
-    """
-    Endpoint nhẹ dùng để các dịch vụ Uptime ping mỗi 14 phút, 
-    giúp server Render gói Free không bị đưa vào trạng thái sleep.
-    """
-    return {"status": "alive", "message": "Tôi vẫn đang thức nhé!"}
