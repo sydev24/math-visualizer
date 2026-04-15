@@ -11,3 +11,4 @@ ENV/
 # Bỏ qua các file cấu hình của hệ điều hành (nếu có)
 .DS_Store
 Thumbs.db
+test.py

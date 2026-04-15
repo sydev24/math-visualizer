@@ -31,8 +31,8 @@ def train_and_evaluate(
     # Chuyển dữ liệu sang numpy để tương thích trực tiếp với scikit-learn.
     x_array = np.asarray(x_values, dtype=float)
     y_array = np.asarray(y_values, dtype=float)
-
     if x_array.ndim != 1 or y_array.ndim != 1:
+        
         raise ValueError("Dữ liệu đầu vào phải là mảng 1 chiều.")
 
     if x_array.size != y_array.size:
