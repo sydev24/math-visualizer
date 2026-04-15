@@ -94,11 +94,24 @@
                     </div>
 
                     <div id="modeManual" style="display: none;">
-                        <label>Trục X</label>
-                        <input type="text" id="manualX" class="math-input" placeholder="1, 2, 3...">
-                        <label>Trục Y</label>
-                        <input type="text" id="manualY" class="math-input" placeholder="2, 4, 6...">
-                        <button class="btn-primary" onclick="applyManualData()">Áp dụng</button>
+                        <p class="hint" style="margin-bottom: 10px; font-weight: 600; color: #127369;">Cách 1: Trực quan: Chế độ click để thêm tọa độ điểm</p>
+                        <button id="btnToggleClick" class="btn-primary" onclick="toggleClickMode()" style="background-color: #4a5568; width: 100%; margin-bottom: 20px; padding: 12px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                            🖱️ Bật chế độ Click tạo điểm
+                        </button>
+
+                        <div style="border-top: 2px dashed #e2e8f0; padding-top: 15px;">
+                            <p class="hint" style="margin-bottom: 10px; font-weight: 600;">Cách 2: Nhập số thủ công</p>
+                            
+                            <label>Trục X</label>
+                            <input type="text" id="manualX" class="math-input" placeholder="1, 2, 3...">
+                            <label>Trục Y</label>
+                            <input type="text" id="manualY" class="math-input" placeholder="2, 4, 6...">
+                            
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn-primary" onclick="applyManualData()" style="flex: 2;">Áp dụng số</button>
+                                <button class="btn-primary" onclick="clearManualData()" style="background-color: #e53e3e; flex: 1;">Xóa</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="modeSample" style="display: none;">

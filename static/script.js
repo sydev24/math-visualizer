@@ -1,6 +1,7 @@
 ﻿// Trạng thái toàn cục của ứng dụng frontend.
 const appState = {
     currentMode: 'ml',
+    isClickMode: false,
     chart: null,
     columns: [],
     dataByColumn: {},
@@ -28,6 +29,7 @@ const dom = {
     r2Value: document.getElementById("r2Value"),
     statusText: document.getElementById("statusText"),
 };
+
 
 // Khởi tạo ứng dụng ngay khi script được tải.
 bootstrap();
@@ -121,9 +123,7 @@ function syncDegreeVisibility() {
 }
 
 async function trainRealtime() {
-    if (appState.columns.length === 0) {
-        return;
-    }
+    if (appState.columns.length === 0) return;
 
     const xKey = dom.xColumn.value;
     const yKey = dom.yColumn.value;
@@ -138,61 +138,54 @@ async function trainRealtime() {
         return;
     }
 
-    // Hủy request train trước đó nếu người dùng thao tác liên tục.
-    if (appState.trainAbortController) {
-        appState.trainAbortController.abort();
-    }
+    if (appState.trainAbortController) appState.trainAbortController.abort();
     appState.trainAbortController = new AbortController();
 
     dom.statusText.textContent = "Đang huấn luyện mô hình...";
+    dom.statusText.style.color = "#d96f32";
 
     try {
         const response = await fetch("/train", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                x_data: xData,
-                y_data: yData,
-                model_type: modelType,
-                degree,
-            }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ x_data: xData, y_data: yData, model_type: modelType, degree }),
             signal: appState.trainAbortController.signal,
         });
 
         const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || "Huấn luyện thất bại.");
 
-        if (!response.ok) {
-            throw new Error(payload.detail || "Huấn luyện thất bại.");
-        }
+        // LƯU THÔNG SỐ ĐỂ VẼ VÔ CỰC
+        appState.mlModel = {
+            coefficients: payload.coefficients || [],
+            intercept: payload.intercept || 0,
+            modelType: modelType,
+            degree: degree
+        };
 
         dom.mseValue.textContent = String(payload.mse);
         dom.r2Value.textContent = String(payload.r2);
-        dom.statusText.textContent = "Mô hình đã cập nhật theo cấu hình mới nhất.";
+        
+        const eq = payload.equation || "Đã cập nhật mô hình.";
+        dom.statusText.textContent = `Phương trình: ${eq}`;
+        dom.statusText.style.color = "#127369";
 
-        const scatterData = xData.map((xValue, index) => ({
-            x: xValue,
-            y: yData[index],
-        }));
-
-        const lineData = payload.line_x.map((lineX, index) => ({
-            x: lineX,
-            y: payload.line_y[index],
-        }));
+        const scatterData = xData.map((xValue, index) => ({ x: xValue, y: yData[index] }));
+        
+        let lineData = [];
+        if (payload.line_data) {
+            lineData = payload.line_data; 
+        } else if (payload.line_x && payload.line_y) {
+            lineData = payload.line_x.map((xVal, idx) => ({ x: xVal, y: payload.line_y[idx] }));
+        }
 
         updateChart(scatterData, lineData, xKey, yKey);
     } catch (error) {
-        // Bỏ qua lỗi abort vì đây là hành vi bình thường khi kéo slider liên tục.
-        if (error.name === "AbortError") {
-            return;
-        }
-
+        if (error.name === "AbortError") return;
         dom.statusText.textContent = "Có lỗi khi huấn luyện mô hình.";
-        console.error(error);
+        dom.statusText.style.color = "red";
     }
 }
-
 function initChart() {
     const context = document.getElementById("mainChart").getContext("2d");
 
@@ -206,7 +199,7 @@ function initChart() {
                     backgroundColor: "rgba(18, 115, 105, 0.75)",
                     borderColor: "rgba(11, 79, 73, 1)",
                     borderWidth: 1,
-                    pointRadius: 4,
+                    pointRadius: 6, // Phóng to chấm tròn lên 1 chút để dễ click
                 },
                 {
                     label: "Đường dự đoán",
@@ -224,23 +217,62 @@ function initChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            // Tắt animation để kéo slider mượt và không bị giật.
             animation: false,
             interaction: {
                 mode: "nearest",
                 intersect: false,
             },
+            
+            // ==========================================
+            // BẮT SỰ KIỆN CLICK CHUỘT (Đã vá lỗi)
+            // ==========================================
+            onClick: (event, elements, chart) => {
+                if (!appState.isClickMode || appState.currentMode !== 'ml') return;
+
+                // 1. Sửa lỗi tọa độ (Dùng native offset)
+                const rawX = chart.scales.x.getValueForPixel(event.native ? event.native.offsetX : event.x);
+                const rawY = chart.scales.y.getValueForPixel(event.native ? event.native.offsetY : event.y);
+                
+                const dataX = Math.round(rawX * 100) / 100;
+                const dataY = Math.round(rawY * 100) / 100;
+
+                // 2. Sửa lỗi đồng bộ: Kiểm tra bằng mảng columns thay vì dataByColumn
+                if (!appState.columns.includes('Dữ liệu X (Click)')) {
+                    appState.dataByColumn['Dữ liệu X (Click)'] = [];
+                    appState.dataByColumn['Dữ liệu Y (Click)'] = [];
+                    appState.columns = ['Dữ liệu X (Click)', 'Dữ liệu Y (Click)'];
+                    fillColumnSelect(dom.xColumn, appState.columns, 0);
+                    fillColumnSelect(dom.yColumn, appState.columns, 1);
+                    dom.configCard.classList.remove("disabled");
+                }
+
+                // Push điểm mới
+                appState.dataByColumn['Dữ liệu X (Click)'].push(dataX);
+                appState.dataByColumn['Dữ liệu Y (Click)'].push(dataY);
+
+                document.getElementById('manualX').value = appState.dataByColumn['Dữ liệu X (Click)'].join(', ');
+                document.getElementById('manualY').value = appState.dataByColumn['Dữ liệu Y (Click)'].join(', ');
+
+                if (appState.dataByColumn['Dữ liệu X (Click)'].length >= 2) {
+                    trainRealtime();
+                } else {
+                    // 3. Sửa lỗi nhảy Camera: Vẽ trực tiếp không thông qua updateChart
+                    chart.data.datasets[0].data = [{ x: dataX, y: dataY }];
+                    chart.data.datasets[1].data = [];
+                    chart.update('none'); 
+                    dom.statusText.textContent = "Cần thêm 1 điểm nữa để vẽ đường thẳng.";
+                }
+            },
+            
             plugins: {
-                legend: {
-                    position: "top",
-                    labels: { usePointStyle: true },
-                },
+                legend: { position: "top", labels: { usePointStyle: true } },
                 zoom: {
                     pan: {
                         enabled: true, 
                         mode: 'xy',
                         onPanStart: function({chart}) {
-                            // Trạm kiểm soát: Nếu mảng dữ liệu rỗng -> Hủy thao tác kéo (return false)
+                            // Khóa Pan khi đang ở chế độ vẽ
+                            if (appState.isClickMode) return false;
                             const hasData = chart.data.datasets[0].data.length > 0 || chart.data.datasets[1].data.length > 0;
                             if (!hasData) return false; 
                         },
@@ -251,7 +283,6 @@ function initChart() {
                         pinch: { enabled: true },
                         mode: 'xy',
                         onZoomStart: function({chart}) {
-                            // Trạm kiểm soát: Nếu mảng dữ liệu rỗng -> Hủy thao tác lăn chuột (return false)
                             const hasData = chart.data.datasets[0].data.length > 0 || chart.data.datasets[1].data.length > 0;
                             if (!hasData) return false; 
                         },
@@ -260,33 +291,12 @@ function initChart() {
                 }
             },
             scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: "Trục X",
-                        color: "#1d2b2a",
-                        font: { weight: "700" },
-                    },
-                    grid: {
-                        color: "rgba(22, 55, 53, 0.08)",
-                    },
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: "Trục Y",
-                        color: "#1d2b2a",
-                        font: { weight: "700" },
-                    },
-                    grid: {
-                        color: "rgba(22, 55, 53, 0.08)",
-                    },
-                },
+                x: { title: { display: true, text: "Trục X", color: "#1d2b2a", font: { weight: "700" } }, grid: { color: "rgba(22, 55, 53, 0.08)" } },
+                y: { title: { display: true, text: "Trục Y", color: "#1d2b2a", font: { weight: "700" } }, grid: { color: "rgba(22, 55, 53, 0.08)" } },
             },
         },
     });
 }
-
 function updateChart(scatterData, lineData, xLabel, yLabel) {
     if (!appState.chart) return;
 
@@ -547,4 +557,66 @@ function setInputMode(mode) {
             buttons[key].className = (key === mode) ? 'tab-btn tab-active' : 'tab-btn tab-inactive';
         }
     });
+}
+// Biến trạng thái theo dõi xem người dùng có đang bật chế độ Click đồ thị không
+appState.isClickMode = false;
+
+function toggleClickMode() {
+    appState.isClickMode = !appState.isClickMode;
+    const btn = document.getElementById('btnToggleClick');
+    
+    if (appState.isClickMode) {
+        btn.textContent = "🔴 Đang bật (Click để tắt)";
+        btn.style.backgroundColor = "#d96f32"; 
+        
+        // Cập nhật trục thành 0-20 nếu biểu đồ đang trống
+        if (!appState.chart.data.datasets[0].data.length) {
+            appState.chart.options.scales.x.min = 0;
+            appState.chart.options.scales.x.max = 20; // Tăng lên 20
+            appState.chart.options.scales.y.min = 0;
+            appState.chart.options.scales.y.max = 20;
+            appState.chart.update('none');
+        }
+        
+        if (appState.chart.options.plugins.zoom) {
+            appState.chart.options.plugins.zoom.pan.enabled = false;
+        }
+    } else {
+        btn.textContent = "🖱️ Bật chế độ Click tạo điểm";
+        btn.style.backgroundColor = "#4a5568";
+        
+        if (appState.chart.options.plugins.zoom) {
+            appState.chart.options.plugins.zoom.pan.enabled = true;
+        }
+    }
+}
+
+function clearManualData() {
+    // 1. Xóa sạch dữ liệu trong State và Input
+    appState.dataByColumn = {};
+    appState.columns = [];
+    document.getElementById('manualX').value = "";
+    document.getElementById('manualY').value = "";
+    
+    // 2. TẮT LỖI HIỂN THỊ: Đưa các chỉ số đánh giá về mặc định
+    document.getElementById('mseValue').textContent = "--";
+    document.getElementById('r2Value').textContent = "--";
+    
+    // 3. Xóa dữ liệu trực tiếp trên Chart và ép lại lưới tọa độ MỚI
+    if (appState.chart) {
+        // Xóa các điểm trên màn hình
+        appState.chart.data.datasets[0].data = [];
+        appState.chart.data.datasets[1].data = [];
+        
+        // Đặt lại lưới rộng hơn (Ví dụ: 0 đến 20 để có nhiều không gian click)
+        appState.chart.options.scales.x.min = 0;
+        appState.chart.options.scales.x.max = 20; 
+        appState.chart.options.scales.y.min = 0;
+        appState.chart.options.scales.y.max = 20;
+        
+        appState.chart.update('none'); // Update mà không có animation
+    }
+    
+    dom.statusText.textContent = "Đã xóa dữ liệu. Hãy click lên đồ thị để thêm điểm mới.";
+    dom.statusText.style.color = "#127369";
 }
