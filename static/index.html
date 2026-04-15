@@ -83,8 +83,6 @@
                             style="padding: 5px 8px; font-size: 12px;">Tải CSV</button>
                         <button id="btnModeManual" class="tab-btn tab-inactive" onclick="setInputMode('manual')"
                             style="padding: 5px 8px; font-size: 12px;">Nhập tay</button>
-                        <button id="btnModeSample" class="tab-btn tab-inactive" onclick="setInputMode('sample')"
-                            style="padding: 5px 8px; font-size: 12px;">Dữ liệu mẫu</button>
                     </div>
 
                     <div id="modeCSV">
@@ -95,18 +93,18 @@
 
                     <div id="modeManual" style="display: none;">
                         <p class="hint" style="margin-bottom: 10px; font-weight: 600; color: #127369;">Cách 1: Trực quan: Chế độ click để thêm tọa độ điểm</p>
-                        <button id="btnToggleClick" class="btn-primary" onclick="toggleClickMode()" style="background-color: #4a5568; width: 100%; margin-bottom: 20px; padding: 12px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <button id="btnToggleClick" class="btn-primary" onclick="toggleClickMode()"
+                            style="background-color: #4a5568; width: 100%; margin-bottom: 20px; padding: 12px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                             🖱️ Bật chế độ Click tạo điểm
                         </button>
 
                         <div style="border-top: 2px dashed #e2e8f0; padding-top: 15px;">
                             <p class="hint" style="margin-bottom: 10px; font-weight: 600;">Cách 2: Nhập số thủ công</p>
-                            
                             <label>Trục X</label>
                             <input type="text" id="manualX" class="math-input" placeholder="1, 2, 3...">
                             <label>Trục Y</label>
                             <input type="text" id="manualY" class="math-input" placeholder="2, 4, 6...">
-                            
+
                             <div style="display: flex; gap: 8px;">
                                 <button class="btn-primary" onclick="applyManualData()" style="flex: 2;">Áp dụng số</button>
                                 <button class="btn-primary" onclick="clearManualData()" style="background-color: #e53e3e; flex: 1;">Xóa</button>
@@ -114,13 +112,8 @@
                         </div>
                     </div>
 
-                    <div id="modeSample" style="display: none;">
-                        <p class="hint" style="margin-bottom: 10px;">Sử dụng tập dữ liệu "Mối liên hệ giữa Chi phí Quảng
-                            cáo và Doanh thu".</p>
-                        <button class="btn-primary" onclick="loadSampleData()">Tải dữ liệu mẫu</button>
-                    </div>
-
                     <p id="uploadInfo" class="hint" style="margin-top: 15px;">Chưa có dữ liệu.</p>
+                    <p id="statusText" style="font-weight: bold; margin-top: 10px; color: #127369; font-size: 14px;"></p>
                 </section>
 
                 <section class="card disabled" id="configCard">
@@ -148,19 +141,27 @@
                 </section>
 
                 <section class="card metrics-card">
-                    <h2>3. Đánh giá mô hình</h2>
-                    <div class="metric-item">
-                        <span>MSE</span>
-                        <strong id="mseValue">--</strong>
+                    <h2>3. Đánh giá & Dự đoán</h2>
+                    
+                    <div style="background-color: #f4f5f7; padding: 20px; border-radius: 8px; margin-top: 15px; margin-bottom: 20px;">
+                        <p id="mathEquation" style="font-size: 17px; font-family: 'Times New Roman', Times, serif; color: #1e293b; margin-bottom: 15px; line-height: 1.6;">
+                            Phương trình hồi quy: <i>y</i> = ...
+                        </p>
+                        <div style="display: flex; gap: 30px; color: #0f172a; font-size: 15px;">
+                            <p style="margin: 0;"><b>MSE:</b> <span id="mseValue">--</span></p>
+                            <p style="margin: 0;"><b>R&sup2;:</b> <span id="r2Value">--</span></p>
+                        </div>
                     </div>
-                    <div class="metric-item">
-                        <span>R²</span>
-                        <strong id="r2Value">--</strong>
+
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                        <label style="white-space: nowrap; font-weight: 500;">Giá trị X dự đoán</label>
+                        <input type="number" id="predictX" class="math-input" placeholder="VD: 15" style="width: 100px; margin: 0;">
+                        <button class="btn-primary" onclick="predictY()" style="flex: 1; background-color: #e2e8f0; color: #1e293b; border: none; box-shadow: none;">Dự đoán</button>
                     </div>
-                    <p id="statusText" class="hint">Sẵn sàng.</p>
+                    
+                    <p id="predictValue" style="color: #d96f32; font-weight: bold; font-size: 16px; margin-top: 10px; display: none;"></p>
                 </section>
             </div>
-
             <div id="mathSection" style="display: none;">
                 <section class="card">
                     <h2>Vẽ Đồ thị Hàm số</h2>
@@ -178,11 +179,20 @@
         </aside>
 
         <main class="chart-panel">
-            <div class="chart-card">
-                <button onclick="resetChartCamera()" 
-                        style="position: absolute; top: 10px; right: 10px; z-index: 10; padding: 6px 12px; background: white; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer; font-family: inherit; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    🏠 Đặt lại góc nhìn
-                </button>
+            <div class="chart-card" style="position: relative;">
+                
+                <div style="position: absolute; top: 15px; right: 20px; z-index: 10; display: flex; gap: 10px;">
+                    <button onclick="requestClearAll()"
+                        style="padding: 8px 12px; background: #fee2e2; color: #991b1b; border: 1px solid #f87171; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        🗑️ Xóa đồ thị
+                    </button>
+
+                    <button onclick="resetChartCamera()"
+                        style="padding: 8px 12px; background: white; color: #1e293b; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        🏠 Đặt lại góc nhìn
+                    </button>
+                </div>
+
                 <canvas id="mainChart"></canvas>
             </div>
         </main>

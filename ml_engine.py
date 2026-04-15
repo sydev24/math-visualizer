@@ -31,8 +31,8 @@ def train_and_evaluate(
     # Chuyển dữ liệu sang numpy để tương thích trực tiếp với scikit-learn.
     x_array = np.asarray(x_values, dtype=float)
     y_array = np.asarray(y_values, dtype=float)
+    
     if x_array.ndim != 1 or y_array.ndim != 1:
-        
         raise ValueError("Dữ liệu đầu vào phải là mảng 1 chiều.")
 
     if x_array.size != y_array.size:
@@ -48,6 +48,7 @@ def train_and_evaluate(
     if model_type == "polynomial":
         if not 2 <= degree <= 10:
             raise ValueError("Degree phải nằm trong khoảng từ 2 đến 10.")
+        # include_bias=False nghĩa là model.coef_ sẽ chỉ chứa [x, x^2, x^3...], rất dễ dùng
         transformer = PolynomialFeatures(degree=degree, include_bias=False)
         x_features = transformer.fit_transform(x_train)
     else:
@@ -57,10 +58,15 @@ def train_and_evaluate(
     # Huấn luyện mô hình hồi quy tuyến tính trên tập đặc trưng đã chuẩn bị.
     model = LinearRegression()
     model.fit(x_features, y_array)
-
+    
     # Xác định miền giá trị X để dựng đường dự đoán mượt.
     x_min = float(np.min(x_array))
     x_max = float(np.max(x_array))
+
+    # --- SỬA LỖI LOGIC RÚT TRÍCH HỆ SỐ ---
+    coef_list = model.coef_.flatten().tolist() 
+    intercept_val = float(model.intercept_)
+    # -------------------------------------
 
     # Nếu toàn bộ X trùng nhau, tạo khoảng giả để vẫn vẽ được đường.
     if np.isclose(x_min, x_max):
@@ -85,9 +91,12 @@ def train_and_evaluate(
     mse = float(mean_squared_error(y_array, y_pred))
     r2 = float(r2_score(y_array, y_pred))
 
+    # --- BỔ SUNG THÔNG SỐ VÀO LỆNH RETURN ĐỂ GỬI CHO FRONTEND ---
     return {
         "line_x": line_x.flatten().tolist(),
         "line_y": line_y.tolist(),
         "mse": round(mse, 6),
         "r2": round(r2, 6),
+        "coefficients": coef_list,
+        "intercept": intercept_val
     }

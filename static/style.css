@@ -116,6 +116,11 @@ input[type="file"]:focus {
     outline: none;
 }
 
+
+button[onclick="requestClearAll()"]:hover {
+    background-color: #fecca7 !important;
+    border-color: #ef4444 !important;
+}
 .btn-primary {
     margin-top: 14px;
     width: 100%;

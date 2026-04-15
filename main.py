@@ -68,6 +68,8 @@ class TrainRequest(BaseModel):
     """Schema request cho endpoint train."""
     x_data: List[float]
     y_data: List[float]
+    coefficients: list[float] = []
+    intercept: float = 0.0
     model_type: str = Field(default="linear")
     degree: int = Field(default=2, ge=2, le=10)
 
