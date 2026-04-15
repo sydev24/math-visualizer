@@ -1,11 +1,17 @@
 ﻿// Trạng thái toàn cục của ứng dụng frontend.
 const appState = {
-    dataByColumn: {},
-    columns: [],
+    currentMode: 'ml',
     chart: null,
-    trainAbortController: null,
+    columns: [],
+    dataByColumn: {},
+    // Thêm phần lưu trữ thông số mô hình học máy
+    mlModel: {
+        coefficients: [],
+        intercept: 0,
+        modelType: 'linear',
+        degree: 1
+    }
 };
-
 // Gom toàn bộ tham chiếu DOM để truy cập nhanh và tránh lặp selector.
 const dom = {
     csvFileInput: document.getElementById("csvFileInput"),
@@ -227,25 +233,31 @@ function initChart() {
             plugins: {
                 legend: {
                     position: "top",
-                    labels: {
-                        usePointStyle: true,
-                    },
+                    labels: { usePointStyle: true },
                 },
-                // zoom: {
-                //     pan: {
-                //         enabled: true,
-                //         mode: 'xy',
-                //         // Gọi hàm kéo dài đồ thị khi kéo chuột
-                //         onPan: function({chart}) { extendGraphOnZoom(chart); }
-                //     },
-                //     zoom: {
-                //         wheel: { enabled: true },
-                //         pinch: { enabled: true },
-                //         mode: 'xy',
-                //         // Gọi hàm kéo dài đồ thị khi lăn chuột
-                //         onZoom: function({chart}) { extendGraphOnZoom(chart); }
-                //     }
-                // }
+                zoom: {
+                    pan: {
+                        enabled: true, 
+                        mode: 'xy',
+                        onPanStart: function({chart}) {
+                            // Trạm kiểm soát: Nếu mảng dữ liệu rỗng -> Hủy thao tác kéo (return false)
+                            const hasData = chart.data.datasets[0].data.length > 0 || chart.data.datasets[1].data.length > 0;
+                            if (!hasData) return false; 
+                        },
+                        onPanComplete: function({chart}) { extendGraphOnZoom(chart); }
+                    },
+                    zoom: {
+                        wheel: { enabled: true },
+                        pinch: { enabled: true },
+                        mode: 'xy',
+                        onZoomStart: function({chart}) {
+                            // Trạm kiểm soát: Nếu mảng dữ liệu rỗng -> Hủy thao tác lăn chuột (return false)
+                            const hasData = chart.data.datasets[0].data.length > 0 || chart.data.datasets[1].data.length > 0;
+                            if (!hasData) return false; 
+                        },
+                        onZoomComplete: function({chart}) { extendGraphOnZoom(chart); }
+                    }
+                }
             },
             scales: {
                 x: {
@@ -276,19 +288,43 @@ function initChart() {
 }
 
 function updateChart(scatterData, lineData, xLabel, yLabel) {
+    if (!appState.chart) return;
+
+    // 1. Cập nhật dữ liệu
     appState.chart.data.datasets[0].data = scatterData;
     appState.chart.data.datasets[1].data = lineData;
     appState.chart.options.scales.x.title.text = xLabel;
     appState.chart.options.scales.y.title.text = yLabel;
-    appState.chart.update("none");
+
+    // 2. TẮT CHỨC NĂNG ZOOM NẾU CHƯA CÓ DỮ LIỆU
+    const hasData = scatterData.length > 0 || lineData.length > 0;
+    if (appState.chart.options.plugins.zoom) {
+        const zoomOpts = appState.chart.options.plugins.zoom;
+        zoomOpts.pan.enabled = hasData;
+        zoomOpts.zoom.wheel.enabled = hasData;
+        zoomOpts.zoom.pinch.enabled = hasData;
+    }
+
+    // 3. Tự động căn chỉnh lại Camera 
+    resetChartCamera();
 }
-// ==========================================
-// TÍNH NĂNG MỞ RỘNG: VẼ HÀM SỐ TOÁN HỌC
-// ==========================================
-
-// Biến lưu trạng thái tab ('ml' hoặc 'math')
-appState.currentMode = 'ml';
-
+function resetChartCamera() {
+    if (!appState.chart) return;
+    
+    // 1. Xóa bỏ toàn bộ giới hạn bị kẹt do Zoom/Pan
+    delete appState.chart.options.scales.x.min;
+    delete appState.chart.options.scales.x.max;
+    delete appState.chart.options.scales.y.min;
+    delete appState.chart.options.scales.y.max;
+    
+    // 2. Ép Chart.js tính toán lại khung nhìn dựa trên dữ liệu hiện tại
+    appState.chart.update();
+    
+    // 3. Đặt trạng thái này làm "Góc nhìn gốc" cho plugin Zoom
+    if (typeof appState.chart.resetZoom === 'function') {
+        appState.chart.resetZoom();
+    }
+}
 function switchMode(mode) {
     appState.currentMode = mode;
     
@@ -360,59 +396,7 @@ document.getElementById('mathInput').addEventListener('keypress', function (e) {
         plotMathRealtime();
     }
 });
-// ==========================================
-// TÍNH NĂNG: NHẬP DỮ LIỆU THỦ CÔNG
-// ==========================================
 
-// Hàm chuyển đổi giao diện giữa "Tải CSV" và "Nhập tay"
-// 1. HÀM CHUYỂN ĐỔI TAB NHẬP LIỆU (Đã nâng cấp hỗ trợ 3 Tab)
-function setInputMode(mode) {
-    const sections = {
-        'csv': document.getElementById('modeCSV'),
-        'manual': document.getElementById('modeManual'),
-        'sample': document.getElementById('modeSample') // Đã thêm tab Sample
-    };
-    const buttons = {
-        'csv': document.getElementById('btnModeCSV'),
-        'manual': document.getElementById('btnModeManual'),
-        'sample': document.getElementById('btnModeSample') // Đã thêm nút Sample
-    };
-
-    // Duyệt qua cả 3 tab, tab nào được chọn thì hiện, còn lại ẩn đi
-    Object.keys(sections).forEach(key => {
-        if (sections[key] && buttons[key]) {
-            sections[key].style.display = (key === mode) ? 'block' : 'none';
-            buttons[key].className = (key === mode) ? 'tab-btn tab-active' : 'tab-btn tab-inactive';
-        }
-    });
-}
-
-// 2. HÀM TẢI DỮ LIỆU MẪU VÀO HỆ THỐNG
-function loadSampleData() {
-    // Tập dữ liệu mẫu: Chi phí Quảng cáo và Doanh thu
-    const sampleData = {
-        "Quảng cáo (triệu VNĐ)": [10, 20, 30, 45, 50, 60, 75, 80, 95, 110, 120, 135],
-        "Doanh thu (triệu VNĐ)": [25, 48, 62, 95, 105, 120, 155, 168, 195, 220, 245, 270]
-    };
-
-    // Đưa dữ liệu vào State toàn cục của App
-    appState.dataByColumn = sampleData;
-    appState.columns = Object.keys(sampleData);
-
-    // Đổ dữ liệu vào Dropdown Trục X và Trục Y
-    fillColumnSelect(dom.xColumn, appState.columns, 0);
-    fillColumnSelect(dom.yColumn, appState.columns, 1);
-
-    // Mở khóa giao diện cấu hình
-    dom.configCard.classList.remove("disabled");
-    
-    // Cập nhật thông báo trạng thái
-    dom.uploadInfo.textContent = "Đã nạp dữ liệu mẫu thành công!";
-    dom.statusText.textContent = "Dữ liệu mẫu sẵn sàng. Đang huấn luyện...";
-    
-    // Tự động gọi API để train model ngay lập tức
-    trainRealtime();
-}
 // Hàm đọc và áp dụng dữ liệu người dùng tự nhập
 function applyManualData() {
     const strX = document.getElementById('manualX').value;
@@ -461,40 +445,56 @@ function applyManualData() {
 // TÍNH NĂNG: ZOOM VÀ KÉO DÀI ĐỒ THỊ (INFINITE PAN/ZOOM)
 // ==========================================
 
+// ==========================================
+// TÍNH NĂNG ZOOM VÀ KÉO DÀI ĐỒ THỊ TOÁN HỌC
+// ==========================================
+// ==========================================
+// TÍNH NĂNG ZOOM VÀ KÉO DÀI ĐỒ THỊ TOÁN HỌC (NÂNG CẤP)
+// ==========================================
+
 function extendGraphOnZoom(chart) {
-    // Chúng ta chỉ áp dụng vẽ vô cực cho chế độ Toán học
-    // (Vì chế độ ML bị giới hạn bởi tập dữ liệu thực tế)
+    const x_min = chart.scales.x.min;
+    const x_max = chart.scales.x.max;
+    const range = x_max - x_min;
+    const padding = range * 0.5;
+    const startX = x_min - padding;
+    const endX = x_max + padding;
+    const numPoints = chart.width || 800;
+    const step = (endX - startX) / numPoints;
+    const lineData = [];
+
     if (appState.currentMode === 'math') {
         const mathInput = document.getElementById('mathInput').value;
-        if (!mathInput) return;
-
+        if (!mathInput || mathInput.includes(',')) return;
         try {
             const compiled = math.compile(mathInput);
-            
-            // Lấy khoảng X đang hiển thị trên màn hình hiện tại
-            const x_min = chart.scales.x.min;
-            const x_max = chart.scales.x.max;
-            
-            // Mở rộng thêm 20% biên độ để khi kéo chuột không bị khựng
-            const padding = (x_max - x_min) * 0.2;
-            const step = (x_max - x_min + 2 * padding) / 300;
-
-            const lineData = [];
-            for (let x = x_min - padding; x <= x_max + padding; x += step) {
+            for (let x = startX; x <= endX; x += step) {
                 const y = compiled.evaluate({ x: x });
-                if (isFinite(y)) {
-                    lineData.push({ x: x, y: y });
-                }
+                lineData.push(isFinite(y) ? { x: x, y: y } : { x: x, y: NaN });
             }
-
-            // Cập nhật riêng dataset của đường thẳng (index 1)
-            chart.data.datasets[1].data = lineData;
-            
-            // Dùng 'none' để update ngay lập tức mà không có animation giật lag
-            chart.update('none'); 
-        } catch (err) {
-            // Bỏ qua lỗi nếu đang gõ dở công thức
+        } catch (e) { return; }
+    } 
+    else if (appState.currentMode === 'ml' && appState.mlModel.coefficients.length > 0) {
+        // Tính toán đường dự đoán dựa trên hệ số mô hình đã lưu
+        const { coefficients, intercept, modelType, degree } = appState.mlModel;
+        
+        for (let x = startX; x <= endX; x += step) {
+            let y = intercept;
+            if (modelType === 'linear') {
+                y += coefficients[0] * x;
+            } else {
+                // Tính đa thức: intercept + c0*x^1 + c1*x^2 + ...
+                coefficients.forEach((coef, i) => {
+                    y += coef * Math.pow(x, i + 1);
+                });
+            }
+            lineData.push({ x: x, y: y });
         }
+    }
+
+    if (chart.data.datasets[1] && lineData.length > 0) {
+        chart.data.datasets[1].data = lineData;
+        chart.update('none');
     }
 }
 function loadSampleData() {
@@ -525,21 +525,26 @@ function loadSampleData() {
     trainRealtime();
 }
 
-// Cập nhật hàm setInputMode để nhận thêm case 'sample'
+
+// Hàm chuyển đổi giao diện giữa "Tải CSV" và "Nhập tay"
+// 1. HÀM CHUYỂN ĐỔI TAB NHẬP LIỆU (Đã nâng cấp hỗ trợ 3 Tab)
 function setInputMode(mode) {
     const sections = {
         'csv': document.getElementById('modeCSV'),
         'manual': document.getElementById('modeManual'),
-        'sample': document.getElementById('modeSample')
+        'sample': document.getElementById('modeSample') // Đã thêm tab Sample
     };
     const buttons = {
         'csv': document.getElementById('btnModeCSV'),
         'manual': document.getElementById('btnModeManual'),
-        'sample': document.getElementById('btnModeSample')
+        'sample': document.getElementById('btnModeSample') // Đã thêm nút Sample
     };
 
+    // Duyệt qua cả 3 tab, tab nào được chọn thì hiện, còn lại ẩn đi
     Object.keys(sections).forEach(key => {
-        sections[key].style.display = (key === mode) ? 'block' : 'none';
-        buttons[key].className = (key === mode) ? 'tab-btn tab-active' : 'tab-btn tab-inactive';
+        if (sections[key] && buttons[key]) {
+            sections[key].style.display = (key === mode) ? 'block' : 'none';
+            buttons[key].className = (key === mode) ? 'tab-btn tab-active' : 'tab-btn tab-inactive';
+        }
     });
 }
