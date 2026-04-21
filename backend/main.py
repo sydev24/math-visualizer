@@ -1,22 +1,21 @@
-﻿from __future__ import annotations
-
-import io
+﻿import io
 import asyncio 
 import httpx   
 import logging
-from typing import List
 from contextlib import asynccontextmanager
+
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
 
-from ml_engine import train_and_evaluate
+# Import các module đã được chia nhỏ
+from backend.schemas import TrainRequest
+from backend.services.ml_engine import train_and_evaluate
 
 # ==========================================
-# CƠ CHẾ SELF-PING CHỐNG NGỦ ĐÔNG
+# CƠ CHẾ SELF-PING CHỐNG NGỦ ĐÔNG (GIỮ NGUYÊN)
 # ==========================================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ml_visualizer")
@@ -51,28 +50,21 @@ app = FastAPI(
     lifespan=lifespan 
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Cập nhật đường dẫn tĩnh trỏ vào thư mục frontend mới
+app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
 @app.get("/")
 def read_index() -> FileResponse:
-    return FileResponse("static/index.html")   
+    # Trỏ đến file HTML trong cấu trúc mới
+    return FileResponse("frontend/index.html")   
 
 @app.get("/ping")
 def keep_alive():
     return {"status": "alive", "message": "Server đang trực chiến!"}
 
 # ==========================================
-# SCHEMAS & ROUTES DATA
+# API ROUTES (XỬ LÝ LOGIC CHUẨN CỦA BẠN)
 # ==========================================
-class TrainRequest(BaseModel):
-    """Schema request cho endpoint train."""
-    x_data: List[float]
-    y_data: List[float]
-    coefficients: list[float] = []
-    intercept: float = 0.0
-    model_type: str = Field(default="linear")
-    degree: int = Field(default=2, ge=2, le=10)
-
 @app.post("/upload")
 async def upload_csv(file: UploadFile = File(...)) -> dict:
     """Xử lý file CSV đầu vào: Đọc, lọc NaN, giữ cột số."""
@@ -117,6 +109,7 @@ def train_model(req: TrainRequest) -> dict:
         raise HTTPException(status_code=400, detail="model_type sai.")
 
     try:
+        # Gọi thẳng "bộ não" tính toán
         return train_and_evaluate(
             x_values=req.x_data,
             y_values=req.y_data,

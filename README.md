@@ -1,137 +1,79 @@
-﻿# ML Data Visualizer
+﻿# ML Data Visualizer & Math Plotter
 
-Ứng dụng web cho phép người dùng tải file CSV, làm sạch dữ liệu bằng Pandas và trực quan hóa kết quả huấn luyện mô hình Machine Learning (Linear Regression / Polynomial Regression) theo thời gian thực.
+Một ứng dụng web mạnh mẽ cho phép trực quan hóa dữ liệu Machine Learning và đồ thị hàm số toán học theo thời gian thực. Ứng dụng hỗ trợ huấn luyện các mô hình hồi quy và tương tác trực tiếp trên biểu đồ.
 
-## 1. Công nghệ sử dụng
+## 1. Tính năng nổi bật
+
+* **Học máy (ML Mode):**
+    * Tải file CSV và tự động làm sạch dữ liệu (loại bỏ NaN, giữ cột số).
+    * Chế độ **Nhập tay** hoặc **Click tạo điểm** trực tiếp trên đồ thị.
+    * Huấn luyện hồi quy tuyến tính (Linear) và đa thức (Polynomial) thời gian thực.
+* **Hàm số (Math Mode):** Vẽ đồ thị các hàm toán học phức tạp bằng thư viện `math.js`.
+* **Tương tác thông minh:**
+    * Zoom/Pan mượt mà trên biểu đồ.
+    * Dự đoán giá trị Y từ giá trị X dựa trên mô hình đã huấn luyện.
+    * Tự động tối ưu khung nhìn (Camera) cho từng chế độ: ML ôm sát dữ liệu, Math ép tỷ lệ 1:1.
+
+## 2. Công nghệ sử dụng
 
 ### Backend
-- Python 3
-- FastAPI
-- Pandas
-- NumPy
-- Scikit-learn
-- python-multipart
+- **FastAPI:** Framework hiệu năng cao cho Python.
+- **Pandas & NumPy:** Xử lý và làm sạch dữ liệu.
+- **Scikit-learn:** Huấn luyện mô hình hồi quy.
 
 ### Frontend
-- HTML5
-- CSS3
-- Vanilla JavaScript
-- Chart.js
+- **Chart.js:** Hiển thị biểu đồ tương tác.
+- **Math.js:** Phân tích cú pháp và tính toán hàm số.
+- **Vanilla JS (ES6+):** Quản lý trạng thái và UI theo cấu trúc Modular.
 
-## 2. Cấu trúc dự án
+## 3. Cấu trúc dự án
 
 ```text
 math_visualizer/
-├─ main.py                  # Chứa route FastAPI và logic upload/xử lý file CSV
-├─ ml_engine.py             # Chứa logic toán học và huấn luyện model bằng scikit-learn
-├─ requirements.txt         # Danh sách thư viện Python cần cài
-├─ README.md
-└─ static/
-   ├─ index.html            # Giao diện người dùng
-   ├─ style.css             # Thiết kế UI (card, sidebar, chart panel)
-   └─ script.js             # Logic frontend, gọi API và vẽ Chart.js
-```
-
-## 3. Luồng xử lý chính
-
-1. Người dùng tải file `.csv`.
-2. Backend đọc dữ liệu bằng Pandas.
-3. Backend lọc dữ liệu:
-- Loại bỏ toàn bộ dòng có NaN.
-- Chỉ giữ các cột dữ liệu số.
-4. Frontend nhận JSON dữ liệu và cho phép chọn:
-- Trục X (Đặc trưng)
-- Trục Y (Mục tiêu)
-- Mô hình (Linear hoặc Polynomial)
-- Degree (2 đến 10, chỉ hiện khi chọn Polynomial)
-5. Mỗi lần người dùng đổi cấu hình (đặc biệt là kéo slider), frontend tự động gọi `/train` để huấn luyện lại ngay.
-6. Backend trả về:
-- 300 điểm mượt `line_x`, `line_y` để vẽ đường dự đoán
-- Chỉ số `MSE` và `R²`
-7. Frontend hiển thị:
-- Scatter points: dữ liệu thật
-- Line chart: đường dự đoán
-
-## 4. Cài đặt và chạy dự án
-
-### Bước 1: Tạo môi trường ảo 
-
-```powershell
+├── backend/
+│   ├── services/
+│   │   ├── __init__.py
+│   │   └── ml_engine.py      # Logic toán học & Scikit-learn
+│   ├── __init__.py
+│   ├── main.py             # Route API & xử lý File
+│   └── schemas.py          # Khai báo kiểu dữ liệu (Pydantic)
+├── frontend/
+│   ├── static/
+│   │   ├── css/
+│   │   │   └── style.css
+│   │   └── js/
+│   │       ├── api.js      # Giao tiếp Fetch API
+│   │       ├── chart.js    # Cấu hình & Reset Camera biểu đồ
+│   │       ├── state.js    # Quản lý trạng thái ứng dụng
+│   │       └── ui.js       # Xử lý sự kiện DOM & Giao diện
+│   └── index.html          # Giao diện chính
+├── .gitignore              # Cấu hình bỏ qua cache Python & venv
+├── requirements.txt
+└── README.md
+## 4. Cài đặt và Chạy
+Bước 1: Khởi tạo môi trường ảo
+Bash
 python -m venv .venv
+# Windows
 .\.venv\Scripts\Activate.ps1
-```
+# Linux/macOS
+source .venv/bin/activate
+Bước 2: Cài đặt thư viện
+Bash
+pip install -r requirements.txt
+Bước 3: Khởi chạy Server
+Bash
+uvicorn backend.main:app --reload
+Truy cập ứng dụng tại: http://127.0.0.1:8000
 
-### Bước 2: Cài thư viện
+5. API chính
+POST /upload: Tiếp nhận file CSV, trả về dữ liệu đã làm sạch.
 
-```powershell
-python -m pip install -r requirements.txt
-```
+POST /train: Nhận tọa độ X, Y và tham số mô hình, trả về phương trình, MSE, R² và các điểm vẽ đường dự đoán.
 
-### Bước 3: Chạy server
+6. Ghi chú kỹ thuật
+Responsive Camera: Hệ thống tự động tính toán lại trục tọa độ khi dữ liệu thay đổi để đảm bảo tính thẩm mỹ và độ chính xác của hình khối.
 
-```powershell
-uvicorn main:app --reload
-```
+Modular JS: Code frontend được chia nhỏ thành các module chức năng, tránh xung đột và giúp dễ dàng bảo trì.
 
-### Bước 4: Truy cập ứng dụng
-
-Mở trình duyệt tại:
-
-- http://127.0.0.1:8000
-
-## 5. API chính
-
-### `POST /upload`
-Upload CSV và trả dữ liệu đã làm sạch.
-
-Response mẫu:
-
-```json
-{
-  "filename": "sample.csv",
-  "rows": 120,
-  "columns": ["feature_1", "target"],
-  "data": {
-    "feature_1": [1.1, 1.5, 1.9],
-    "target": [2.0, 2.6, 3.1]
-  }
-}
-```
-
-### `POST /train`
-Huấn luyện mô hình theo dữ liệu frontend gửi lên.
-
-Request mẫu:
-
-```json
-{
-  "x_data": [1.1, 1.5, 1.9],
-  "y_data": [2.0, 2.6, 3.1],
-  "model_type": "polynomial",
-  "degree": 3
-}
-```
-
-Response mẫu:
-
-```json
-{
-  "line_x": [0.9, 0.91, 0.92],
-  "line_y": [1.8, 1.85, 1.9],
-  "mse": 0.012345,
-  "r2": 0.987654
-}
-```
-
-## 6. Ghi chú kỹ thuật
-
-- Để thao tác kéo slider mượt, biểu đồ Chart.js được tắt animation (`animation: false`).
-- Frontend dùng `AbortController` để hủy request train cũ khi người dùng kéo slider liên tục, giúp tránh nghẽn request.
-- Khi dữ liệu trục X có giá trị trùng nhau hoàn toàn, backend tự mở rộng miền X để vẫn vẽ được đường dự đoán.
-
-## 7. Hướng mở rộng
-
-- Thêm chuẩn hóa dữ liệu (`StandardScaler`) trước khi train.
-- Thêm chia tập train/test và đánh giá trên tập test.
-- Hỗ trợ nhiều biến đầu vào (multiple features).
-- Lưu lịch sử các lần chạy mô hình để so sánh kết quả.
+AbortController: Ngăn chặn tình trạng nghẽn request khi người dùng thay đổi cấu hình (kéo slider) liên tục.
